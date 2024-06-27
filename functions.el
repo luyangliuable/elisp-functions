@@ -99,3 +99,25 @@ _o_: other        _w_: ace-window
   (split-window-below)
   (other-window 1)
   (funcall callback))
+
+(defun luyangliuable/wrap-with-char (char)
+  "Wrap the selected region with the specified CHAR."
+  (interactive "cWrap with char: ")
+  (let ((beg (region-beginning))
+        (end (region-end)))
+    (save-excursion
+      (goto-char end)
+      (insert char)
+      (goto-char beg)
+      (insert char))))
+
+(defun luyangliuable/toggle-maximize-buffer ()
+  "Maximize buffer"
+  (interactive)
+  (save-excursion
+    (if (and (= 1 (length (window-list)))
+             (assoc ?_ register-alist))
+        (jump-to-register ?_)
+      (progn
+        (window-configuration-to-register ?_)
+        (delete-other-windows)))))
