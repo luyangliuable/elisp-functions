@@ -86,12 +86,18 @@ _o_: other        _w_: ace-window
   ("w" ace-window)                  ; Select window with ace-window
   ("q" nil "quit" :color blue))     ; Quit the hydra
 
+(defvar luyangliuable/last-buffer nil
+  "The buffer to switch back to.")
+
 (defun luyangliuable/switch-to-last-buffer ()
-  "Switch back and forth between current and last buffer in the current window."
+  "Switch back and forth between the current and last buffer in the current window."
   (interactive)
-  (let ((current-buffer (current-buffer))
-        (last-buffer (other-buffer (current-buffer) 1)))
-    (switch-to-buffer last-buffer)))
+  (let ((current-buffer (current-buffer)))
+    (if (and luyangliuable/last-buffer
+             (buffer-live-p luyangliuable/last-buffer))
+        (switch-to-buffer luyangliuable/last-buffer)
+      (message "No last buffer to switch to."))
+    (setq luyangliuable/last-buffer current-buffer)))
 
 (defun luyangliuable/split-window-below-and-run-callback (callback)
   "Split the window vertically and run the CALLBACK function in the new window."
@@ -121,3 +127,28 @@ _o_: other        _w_: ace-window
       (progn
         (window-configuration-to-register ?_)
         (delete-other-windows)))))
+
+(defun luyangliuable/yank-active-minor-modes ()
+  "Yank the names of all active minor modes into the kill ring."
+  (interactive)
+  (let ((active-minor-modes '()))
+    (mapc (lambda (mode)
+            (when (and (boundp mode) (symbol-value mode))
+              (push (symbol-name mode) active-minor-modes)))
+          minor-mode-list)
+    (let ((modes-string (string-join active-minor-modes ", ")))
+      (kill-new modes-string)
+      (message "Yanked active minor modes: %s" modes-string))))
+
+(defun luyangliuable/yank-major-mode ()
+  "Yank the name of the current major mode into the kill ring."
+  (interactive)
+  (let ((major-mode-name (symbol-name major-mode)))
+    (kill-new major-mode-name)
+    (message "Yanked major mode: %s" major-mode-name)))
+
+;; https://stackoverflow.com/a/10216338
+(defun luyangliuable/copy-whole-buffer-to-clipboard ()
+  "Copy entire buffer to clipboard"
+  (interactive)
+  (clipboard-kill-ring-save (point-min) (point-max)))
