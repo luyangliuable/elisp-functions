@@ -86,18 +86,31 @@ _o_: other        _w_: ace-window
   ("w" ace-window)                  ; Select window with ace-window
   ("q" nil "quit" :color blue))     ; Quit the hydra
 
-(defvar luyangliuable/last-buffer nil
-  "The buffer to switch back to.")
+(defun luyangliuable/switch-to-last-buffer (&optional window)
+  "Switch back and forth between current and last buffer in the
+current window.
 
-(defun luyangliuable/switch-to-last-buffer ()
-  "Switch back and forth between the current and last buffer in the current window."
+If `doom-workspaces-restrict-spc-tab' is `t' then this only switches between
+the current workspace's buffers."
   (interactive)
-  (let ((current-buffer (current-buffer)))
-    (if (and luyangliuable/last-buffer
-             (buffer-live-p luyangliuable/last-buffer))
-        (switch-to-buffer luyangliuable/last-buffer)
-      (message "No last buffer to switch to."))
-    (setq luyangliuable/last-buffer current-buffer)))
+  (let ((window (or window (selected-window))))
+    (cl-destructuring-bind (buf start pos)
+        (if (bound-and-true-p doom-workspaces-restrict-spc-tab)
+            (let ((buffer-list (doom-buffer-list))
+                  (current-buffer (window-buffer window)))
+              ;; Find buffer of the same workspace in window
+              (seq-find (lambda (it) ;; Predicate
+                          (and (not (eq (car it) current-buffer))
+                               (member (car it) buffer-list)))
+                        (window-prev-buffers window)
+                        ;; Default if none found
+                        (list nil nil nil)))
+          (or (cl-find (window-buffer window) (window-prev-buffers window)
+                       :key #'car :test-not #'eq)
+              (list (other-buffer) nil nil)))
+      (if (not buf)
+          (message "Last buffer not found.")
+        (set-window-buffer-start-and-point window buf start pos)))))
 
 (defun luyangliuable/split-window-below-and-run-callback (callback)
   "Split the window vertically and run the CALLBACK function in the new window."
