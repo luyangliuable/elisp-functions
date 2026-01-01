@@ -210,4 +210,28 @@ the current workspace's buffers."
 (defun luyangliuable/copy-whole-buffer-to-clipboard ()
   "Copy entire buffer to clipboard"
   (interactive)
-  (clipboard-kill-ring-save (point-min) (point-max)))
+  (clipboard-kill-ring-save (point-min) (point-max))
+  (message "Yanked entire buffer"))
+
+
+(defun luyangliuable/drag-stuff-up-repeatable ()
+  "Drag stuff up with repeatable key."
+  (interactive)
+  (drag-stuff-up 1)
+  (set-transient-map
+   (let ((map (make-sparse-keymap)))
+     (define-key map (kbd "J") #'luyangliuable/drag-stuff-up-repeatable)
+     (define-key map (kbd "K") #'luyangliuable/drag-stuff-down-repeatable)
+     map)
+   t))
+
+(defun luyangliuable/drag-stuff-down-repeatable ()
+  "Drag stuff down with repeatable key."
+  (interactive)
+  (drag-stuff-down 1)
+  (set-transient-map
+   (let ((map (make-sparse-keymap)))
+     (define-key map (kbd "J") #'luyangliuable/drag-stuff-up-repeatable)
+     (define-key map (kbd "K") #'luyangliuable/drag-stuff-down-repeatable)
+     map)
+   t))
