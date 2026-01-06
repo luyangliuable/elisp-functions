@@ -73,8 +73,34 @@
   (if (eq major-mode 'magit-status-mode)
       ;; If already in magit-status-mode, just refresh
       (magit-refresh)
-    ;; Otherwise, open magit in a split window
-    (luyangliuable/split-window-right-and-run-callback #'magit)))
+    ;; Otherwise, open magit in a split window and mark it for cleanup
+    (let ((original-window (selected-window)))
+      (luyangliuable/split-window-right-and-run-callback #'magit)
+      ;; Store the original window for cleanup purposes
+      (with-current-buffer (magit-get-mode-buffer 'magit-status-mode)
+        (setq-local luyangliuable--magit-original-window original-window)))))
+
+(defun luyangliuable/magit-quit ()
+  "Custom magit quit function that properly handles split window cleanup."
+  (interactive)
+  (let ((magit-window (selected-window))
+        (magit-buffer (current-buffer))
+        (original-window (when (local-variable-p 'luyangliuable--magit-original-window)
+                          luyangliuable--magit-original-window)))
+
+    ;; Store values before calling +magit/quit which might change the buffer context
+    (let ((should-cleanup (and original-window
+                               (window-live-p original-window)
+                               (not (eq magit-window original-window))
+                               (> (length (window-list)) 1)))) ;; Don't delete if it's the only window
+
+      ;; Call the standard Doom magit quit function
+      (+magit/quit)
+
+      ;; If we should clean up and the magit window still exists, do the cleanup
+      (when (and should-cleanup (window-live-p magit-window))
+        (delete-window magit-window)
+        (select-window original-window)))))
 
 (defhydra hydra-window-management (:color amaranth :hint nil)
   "
