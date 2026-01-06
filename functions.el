@@ -99,8 +99,8 @@ _o_: other        _w_: ace-window
   ("M" minimize-window)             ; Minimize the current window
   ("]" enlarge-window-horizontally) ; Enlarge the window horizontally
   ("[" shrink-window-horizontally)  ; Shrink the window horizontally
-  ("{" shrink-window-vertically)  ; Shrink the window horizontally
-  ("}" enlarge-window-vertically) ; Enlarge the window horizontally
+  ("{" shrink-window)               ; Shrink the window horizontally
+  ("}" enlarge-window)              ; Enlarge the window horizontally
   ("f" follow-mode)                 ; Toggle follow mode
   ("o" other-window)                ; Switch to the other window
   ("b" balance-windows)             ; Balance the sizes of all windows
