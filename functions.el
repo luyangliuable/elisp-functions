@@ -46,11 +46,35 @@
   (switch-to-buffer "*scratch*"))
 
 (defun luyangliuable/split-window-right-and-run-callback (callback)
-  "Split the window vertically and run the CALLBACK function in the new window."
+  "Split the window vertically and run the CALLBACK function in the new window.
+   Handles side windows (like Treemacs) by using a regular window instead."
   (interactive "aFunction to run in new window: ")
-  (split-window-right)
-  (other-window 1)
-  (funcall callback))
+  ;; Check if we're in a side window
+  (let ((current-window (selected-window)))
+    (if (window-parameter current-window 'window-side)
+        ;; If in a side window, find a regular window to split
+        (let ((main-window (get-mru-window nil nil t))) ; Get main regular window
+          (if main-window
+              (progn
+                (select-window main-window)
+                (split-window-right)
+                (other-window 1)
+                (funcall callback))
+            ;; If no main window, just call the callback in current window
+            (funcall callback)))
+      ;; If not in a side window, proceed normally
+      (split-window-right)
+      (other-window 1)
+      (funcall callback))))
+
+(defun luyangliuable/magit ()
+  "Smart magit function that refreshes if already in magit-status-mode, otherwise opens magit in a split window."
+  (interactive)
+  (if (eq major-mode 'magit-status-mode)
+      ;; If already in magit-status-mode, just refresh
+      (magit-refresh)
+    ;; Otherwise, open magit in a split window
+    (luyangliuable/split-window-right-and-run-callback #'magit)))
 
 (defhydra hydra-window-management (:color amaranth :hint nil)
   "
@@ -113,11 +137,26 @@ the current workspace's buffers."
         (set-window-buffer-start-and-point window buf start pos)))))
 
 (defun luyangliuable/split-window-below-and-run-callback (callback)
-  "Split the window vertically and run the CALLBACK function in the new window."
-  (interactive "Function to run in new window: ")
-  (split-window-below)
-  (other-window 1)
-  (funcall callback))
+  "Split the window horizontally and run the CALLBACK function in the new window.
+   Handles side windows (like Treemacs) by using a regular window instead."
+  (interactive "aFunction to run in new window: ")
+  ;; Check if we're in a side window
+  (let ((current-window (selected-window)))
+    (if (window-parameter current-window 'window-side)
+        ;; If in a side window, find a regular window to split
+        (let ((main-window (get-mru-window nil nil t))) ; Get main regular window
+          (if main-window
+              (progn
+                (select-window main-window)
+                (split-window-below)
+                (other-window 1)
+                (funcall callback))
+            ;; If no main window, just call the callback in current window
+            (funcall callback)))
+      ;; If not in a side window, proceed normally
+      (split-window-below)
+      (other-window 1)
+      (funcall callback))))
 
 (defun luyangliuable/wrap-with-char (char)
   "Wrap the selected region with the corresponding CHAR pair."
@@ -212,7 +251,6 @@ the current workspace's buffers."
   (interactive)
   (clipboard-kill-ring-save (point-min) (point-max))
   (message "Yanked entire buffer"))
-
 
 (defun luyangliuable/drag-stuff-up-repeatable ()
   "Drag stuff up with repeatable key."
