@@ -278,6 +278,45 @@ the current workspace's buffers."
   (clipboard-kill-ring-save (point-min) (point-max))
   (message "Yanked entire buffer"))
 
+(defun luyangliuable/shell-clear-buffer ()
+  "Clear the shell buffer content, similar to 'clear' command."
+  (interactive)
+  (let ((comint-buffer-maximum-size 0))
+    (comint-truncate-buffer))
+  (goto-char (point-max))
+  (comint-send-input))
+
+(defun luyangliuable/shell-kill-current-command ()
+  "Kill the current command being typed in shell."
+  (interactive)
+  (comint-kill-input))
+
+(defun luyangliuable/shell-send-eof ()
+  "Send EOF (Ctrl-D) to shell process."
+  (interactive)
+  (comint-send-eof))
+
+(defun luyangliuable/shell-interrupt-process ()
+  "Send interrupt signal (Ctrl-C) to shell process."
+  (interactive)
+  (comint-interrupt-subjob))
+
+(defun luyangliuable/shell-copy-last-output ()
+  "Copy the last command output to kill ring."
+  (interactive)
+  (let ((start (save-excursion
+                 (comint-previous-prompt 1)
+                 (forward-line 1)
+                 (point)))
+        (end (save-excursion
+               (comint-next-prompt 1)
+               (forward-line -1)
+               (end-of-line)
+               (point))))
+    (when (< start end)
+      (kill-ring-save start end)
+      (message "Copied last output to kill ring"))))
+
 (defun luyangliuable/treemacs-shell-here ()
   "Open shell in the directory of the current treemacs node, or project root if not in treemacs."
   (interactive)
