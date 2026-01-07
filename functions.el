@@ -408,3 +408,12 @@ the current workspace's buffers."
      (define-key map (kbd "K") #'luyangliuable/drag-stuff-up-repeatable)
      map)
    nil)) ; Simplified - just use nil without the message parameter
+
+(defun luyangliuable/sort-lines (&optional reverse)
+  "Sort the lines within a selected region or entire buffer.
+When given a non-nil argument, sort in descending order instead."
+  (interactive "P")
+  (let* ((region-active (or (region-active-p) (evil-visual-state-p)))
+         (beg (if region-active (region-beginning) (point-min)))
+         (end (if region-active (region-end) (point-max))))
+    (sort-lines reverse beg end)))
