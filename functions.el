@@ -278,24 +278,94 @@ the current workspace's buffers."
   (clipboard-kill-ring-save (point-min) (point-max))
   (message "Yanked entire buffer"))
 
+(defun luyangliuable/treemacs-shell-here ()
+  "Open shell in the directory of the current treemacs node, or project root if not in treemacs."
+  (interactive)
+  (let ((target-dir 
+         (condition-case err
+             (cond
+              ;; If we're in treemacs, get the directory of the current node
+              ((and (eq major-mode 'treemacs-mode)
+                    (treemacs-current-button))
+               (let* ((button (treemacs-current-button))
+                      (node (when button (treemacs-button-get button :path))))
+                 (when node
+                   (if (file-directory-p node)
+                       node
+                     (file-name-directory node)))))
+              ;; If we have a project root, use that
+              ((doom-project-root) (doom-project-root))
+              ;; Otherwise use current directory
+              (t default-directory))
+           ;; If there's any error with treemacs, fall back to project root or default
+           (error 
+            (message "Treemacs error, using fallback directory: %s" (error-message-string err))
+            (or (doom-project-root) default-directory)))))
+    
+    ;; Ensure we have a valid directory
+    (setq target-dir (or target-dir default-directory))
+    (message "Opening shell in: %s" target-dir)
+    
+    ;; Split window and open shell
+    (split-window-right)
+    (other-window 1)
+    (let ((default-directory target-dir))
+      (shell))))
+
+(defun luyangliuable/treemacs-shell-here-horizontal ()
+  "Open shell horizontally in the directory of the current treemacs node, or project root if not in treemacs."
+  (interactive)
+  (let ((target-dir 
+         (condition-case err
+             (cond
+              ;; If we're in treemacs, get the directory of the current node
+              ((and (eq major-mode 'treemacs-mode)
+                    (treemacs-current-button))
+               (let* ((button (treemacs-current-button))
+                      (node (when button (treemacs-button-get button :path))))
+                 (when node
+                   (if (file-directory-p node)
+                       node
+                     (file-name-directory node)))))
+              ;; If we have a project root, use that
+              ((doom-project-root) (doom-project-root))
+              ;; Otherwise use current directory
+              (t default-directory))
+           ;; If there's any error with treemacs, fall back to project root or default
+           (error 
+            (message "Treemacs error, using fallback directory: %s" (error-message-string err))
+            (or (doom-project-root) default-directory)))))
+    
+    ;; Ensure we have a valid directory
+    (setq target-dir (or target-dir default-directory))
+    (message "Opening shell in: %s" target-dir)
+    
+    ;; Split window and open shell
+    (split-window-below)
+    (other-window 1)
+    (let ((default-directory target-dir))
+      (shell))))
+
 (defun luyangliuable/drag-stuff-up-repeatable ()
   "Drag stuff up with repeatable key."
   (interactive)
   (drag-stuff-up 1)
+  (message "Press K to move up, J to move down, any other key to exit")
   (set-transient-map
    (let ((map (make-sparse-keymap)))
-     (define-key map (kbd "J") #'luyangliuable/drag-stuff-up-repeatable)
-     (define-key map (kbd "K") #'luyangliuable/drag-stuff-down-repeatable)
+     (define-key map (kbd "K") #'luyangliuable/drag-stuff-up-repeatable)
+     (define-key map (kbd "J") #'luyangliuable/drag-stuff-down-repeatable)
      map)
-   t))
+   nil)) ; Simplified - just use nil without the message parameter
 
 (defun luyangliuable/drag-stuff-down-repeatable ()
   "Drag stuff down with repeatable key."
   (interactive)
   (drag-stuff-down 1)
+  (message "Press J to move down, K to move up, any other key to exit")
   (set-transient-map
    (let ((map (make-sparse-keymap)))
-     (define-key map (kbd "J") #'luyangliuable/drag-stuff-up-repeatable)
-     (define-key map (kbd "K") #'luyangliuable/drag-stuff-down-repeatable)
+     (define-key map (kbd "J") #'luyangliuable/drag-stuff-down-repeatable)
+     (define-key map (kbd "K") #'luyangliuable/drag-stuff-up-repeatable)
      map)
-   t))
+   nil)) ; Simplified - just use nil without the message parameter
