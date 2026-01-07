@@ -320,7 +320,7 @@ the current workspace's buffers."
 (defun luyangliuable/treemacs-shell-here ()
   "Open shell in the directory of the current treemacs node, or project root if not in treemacs."
   (interactive)
-  (let ((target-dir 
+  (let ((target-dir
          (condition-case err
              (cond
               ;; If we're in treemacs, get the directory of the current node
@@ -337,24 +337,24 @@ the current workspace's buffers."
               ;; Otherwise use current directory
               (t default-directory))
            ;; If there's any error with treemacs, fall back to project root or default
-           (error 
+           (error
             (message "Treemacs error, using fallback directory: %s" (error-message-string err))
             (or (doom-project-root) default-directory)))))
-    
+
     ;; Ensure we have a valid directory
     (setq target-dir (or target-dir default-directory))
     (message "Opening shell in: %s" target-dir)
-    
-    ;; Split window and open shell
-    (split-window-right)
-    (other-window 1)
-    (let ((default-directory target-dir))
-      (shell))))
+
+    ;; Use safe window splitting and open shell
+    (luyangliuable/split-window-right-and-run-callback
+     (lambda ()
+       (let ((default-directory target-dir))
+         (shell))))))
 
 (defun luyangliuable/treemacs-shell-here-horizontal ()
   "Open shell horizontally in the directory of the current treemacs node, or project root if not in treemacs."
   (interactive)
-  (let ((target-dir 
+  (let ((target-dir
          (condition-case err
              (cond
               ;; If we're in treemacs, get the directory of the current node
@@ -371,19 +371,19 @@ the current workspace's buffers."
               ;; Otherwise use current directory
               (t default-directory))
            ;; If there's any error with treemacs, fall back to project root or default
-           (error 
+           (error
             (message "Treemacs error, using fallback directory: %s" (error-message-string err))
             (or (doom-project-root) default-directory)))))
-    
+
     ;; Ensure we have a valid directory
     (setq target-dir (or target-dir default-directory))
     (message "Opening shell in: %s" target-dir)
-    
-    ;; Split window and open shell
-    (split-window-below)
-    (other-window 1)
-    (let ((default-directory target-dir))
-      (shell))))
+
+    ;; Use safe window splitting and open shell
+    (luyangliuable/split-window-below-and-run-callback
+     (lambda ()
+       (let ((default-directory target-dir))
+         (shell))))))
 
 (defun luyangliuable/drag-stuff-up-repeatable ()
   "Drag stuff up with repeatable key."
