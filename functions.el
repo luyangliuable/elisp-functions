@@ -102,6 +102,50 @@
         (delete-window magit-window)
         (select-window original-window)))))
 
+(defun luyangliuable/treemacs-magit-here ()
+  "Open magit in the directory of the current treemacs node, or project root if not in treemacs."
+  (interactive)
+  (let ((target-dir
+         (condition-case err
+             (cond
+              ;; If we're in treemacs, get the directory of the current node
+              ((and (eq major-mode 'treemacs-mode)
+                    (treemacs-current-button))
+               (let* ((button (treemacs-current-button))
+                      (node (when button (treemacs-button-get button :path))))
+                 (when node
+                   (if (file-directory-p node)
+                       node
+                     (file-name-directory node)))))
+              ;; If we have a project root, use that
+              ((doom-project-root) (doom-project-root))
+              ;; Otherwise use current directory
+              (t default-directory))
+           ;; If there's any error with treemacs, fall back to project root or default
+           (error
+            (message "Treemacs error, using fallback directory: %s" (error-message-string err))
+            (or (doom-project-root) default-directory)))))
+
+    ;; Ensure we have a valid directory
+    (setq target-dir (or target-dir default-directory))
+    (message "Opening magit in: %s" target-dir)
+
+    ;; Check if already in magit-status-mode in the target directory
+    (if (and (eq major-mode 'magit-status-mode)
+             (let ((current-repo (magit-toplevel))
+                   (target-repo (magit-toplevel target-dir)))
+               (and current-repo target-repo
+                    (string= (file-truename current-repo) (file-truename target-repo)))))
+        ;; If already in magit-status-mode in the same repository, just refresh
+        (magit-refresh)
+      ;; Otherwise, open magit in a split window for the target directory
+      (let ((original-window (selected-window)))
+        (luyangliuable/split-window-right-and-run-callback
+         (lambda () (magit-status target-dir)))
+        ;; Store the original window for cleanup purposes
+        (with-current-buffer (magit-get-mode-buffer 'magit-status-mode)
+          (setq-local luyangliuable--magit-original-window original-window))))))
+
 (defhydra hydra-window-management (:color amaranth :hint nil)
   "
 Movement^^        ^Split^         ^Delete^        ^Other^
