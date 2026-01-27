@@ -461,3 +461,36 @@ When given a non-nil argument, sort in descending order instead."
          (beg (if region-active (region-beginning) (point-min)))
          (end (if region-active (region-end) (point-max))))
     (sort-lines reverse beg end)))
+
+(defun luyangliuable/new-shell-for-project ()
+  "Create a new shell session for the current project.
+Always spawns a fresh shell instead of reusing existing ones."
+  (interactive)
+  (let* ((project-root (or (doom-project-root) default-directory))
+         (project-name (file-name-nondirectory (directory-file-name project-root)))
+         (timestamp (format-time-string "%H%M%S"))
+         (shell-buffer-name (format "*shell-%s-%s*" project-name timestamp))
+         (default-directory project-root))
+
+    ;; Create the new shell buffer with unique name
+    (let ((shell-buffer (shell shell-buffer-name)))
+      ;; Switch to the new shell buffer
+      (switch-to-buffer shell-buffer)
+      (message "New shell created for project '%s' in %s" project-name project-root))))
+
+(defun luyangliuable/new-shell-for-project-split ()
+  "Create a new shell session for the current project in a split window.
+Always spawns a fresh shell instead of reusing existing ones."
+  (interactive)
+  (let* ((project-root (or (doom-project-root) default-directory))
+         (project-name (file-name-nondirectory (directory-file-name project-root)))
+         (timestamp (format-time-string "%H%M%S"))
+         (shell-buffer-name (format "*shell-%s-%s*" project-name timestamp)))
+
+    ;; Use the existing split window function but with our new shell logic
+    (luyangliuable/split-window-right-and-run-callback
+     (lambda ()
+       (let ((default-directory project-root))
+         (let ((shell-buffer (shell shell-buffer-name)))
+           (switch-to-buffer shell-buffer)
+           (message "New shell created for project '%s' in %s" project-name project-root)))))))
