@@ -86,7 +86,7 @@
   (let ((magit-window (selected-window))
         (magit-buffer (current-buffer))
         (original-window (when (local-variable-p 'luyangliuable--magit-original-window)
-                          luyangliuable--magit-original-window)))
+                           luyangliuable--magit-original-window)))
 
     ;; Store values before calling +magit/quit which might change the buffer context
     (let ((should-cleanup (and original-window
@@ -147,7 +147,7 @@
           (setq-local luyangliuable--magit-original-window original-window))))))
 
 (defhydra hydra-window-management (:color amaranth :hint nil)
-  "
+	  "
 Movement^^        ^Split^         ^Delete^        ^Other^
 ----------------------------------------------------------------
 _h_: left         _v_: vertical   _d_: delete     _u_: undo
@@ -157,28 +157,28 @@ _l_: right        _}_: minimize
 _f_: follow       _{_: enlarge    _F_: fullscreen
 _o_: other        _w_: ace-window
 "
-  ("h" windmove-left)               ; Move focus to the left window
-  ("j" windmove-down)               ; Move focus to the window below
-  ("k" windmove-up)                 ; Move focus to the window above
-  ("l" windmove-right)              ; Move focus to the right window
-  ("v" split-window-right)          ; Split the window vertically
-  ("s" split-window-below)          ; Split the window horizontally
-  ("d" delete-window)               ; Delete the current window
-  ("D" delete-other-windows)        ; Delete all other windows
-  ("m" delete-other-windows)        ; Maximize the current window
-  ("M" minimize-window)             ; Minimize the current window
-  ("]" enlarge-window-horizontally) ; Enlarge the window horizontally
-  ("[" shrink-window-horizontally)  ; Shrink the window horizontally
-  ("{" shrink-window)               ; Shrink the window horizontally
-  ("}" enlarge-window)              ; Enlarge the window horizontally
-  ("f" follow-mode)                 ; Toggle follow mode
-  ("o" other-window)                ; Switch to the other window
-  ("b" balance-windows)             ; Balance the sizes of all windows
-  ("F" toggle-frame-fullscreen)     ; Toggle fullscreen mode
-  ("u" winner-undo)                 ; Undo window configuration change
-  ("r" winner-redo)                 ; Redo window configuration change
-  ("w" ace-window)                  ; Select window with ace-window
-  ("q" nil "quit" :color blue))     ; Quit the hydra
+	  ("h" windmove-left)               ; Move focus to the left window
+	  ("j" windmove-down)               ; Move focus to the window below
+	  ("k" windmove-up)                 ; Move focus to the window above
+	  ("l" windmove-right)              ; Move focus to the right window
+	  ("v" split-window-right)          ; Split the window vertically
+	  ("s" split-window-below)          ; Split the window horizontally
+	  ("d" delete-window)               ; Delete the current window
+	  ("D" delete-other-windows)        ; Delete all other windows
+	  ("m" delete-other-windows)        ; Maximize the current window
+	  ("M" minimize-window)             ; Minimize the current window
+	  ("]" enlarge-window-horizontally) ; Enlarge the window horizontally
+	  ("[" shrink-window-horizontally)  ; Shrink the window horizontally
+	  ("{" shrink-window)               ; Shrink the window horizontally
+	  ("}" enlarge-window)              ; Enlarge the window horizontally
+	  ("f" follow-mode)                 ; Toggle follow mode
+	  ("o" other-window)                ; Switch to the other window
+	  ("b" balance-windows)             ; Balance the sizes of all windows
+	  ("F" toggle-frame-fullscreen)     ; Toggle fullscreen mode
+	  ("u" winner-undo)                 ; Undo window configuration change
+	  ("r" winner-redo)                 ; Redo window configuration change
+	  ("w" ace-window)                  ; Select window with ace-window
+	  ("q" nil "quit" :color blue))     ; Quit the hydra
 
 (defun luyangliuable/switch-to-last-buffer (&optional window)
   "Switch back and forth between current and last buffer in the

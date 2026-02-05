@@ -1,0 +1,3 @@
+[submodule "elisp-functions"]
+	path = elisp-functions
+	url = https://github.com/luyangliuable/elisp-functions.git
