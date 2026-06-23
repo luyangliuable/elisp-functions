@@ -494,3 +494,55 @@ Always spawns a fresh shell instead of reusing existing ones."
          (let ((shell-buffer (shell shell-buffer-name)))
            (switch-to-buffer shell-buffer)
            (message "New shell created for project '%s' in %s" project-name project-root)))))))
+
+(defun luyangliuable/browse-at-remote-line (&optional arg)
+  "Open the remote URL for the current file at point's line.
+With prefix ARG, toggle `browse-at-remote-prefer-symbolic'."
+  (interactive "P")
+  (require 'browse-at-remote)
+  (let ((browse-at-remote-add-line-number-if-no-region-selected t)
+        (browse-at-remote-prefer-symbolic
+         (if arg
+             (not browse-at-remote-prefer-symbolic)
+           browse-at-remote-prefer-symbolic))
+        (mark-active nil))
+    (browse-at-remote)))
+
+(defun luyangliuable/browse-at-remote-region (&optional arg)
+  "Open the remote URL for the active region.
+With prefix ARG, toggle `browse-at-remote-prefer-symbolic'."
+  (interactive "P")
+  (unless (use-region-p)
+    (user-error "No active region"))
+  (require 'browse-at-remote)
+  (let ((browse-at-remote-prefer-symbolic
+         (if arg
+             (not browse-at-remote-prefer-symbolic)
+           browse-at-remote-prefer-symbolic)))
+    (browse-at-remote)))
+
+(defun luyangliuable/open-in-external-app (file-path)
+  "Open FILE-PATH with the system default external application."
+  (cond
+   ((eq system-type 'darwin)
+    (start-process "open-external" nil "open" file-path))
+   ((eq system-type 'gnu/linux)
+    (let ((process-connection-type nil))
+      (start-process "open-external" nil "xdg-open" file-path)))
+   ((eq system-type 'windows-nt)
+    (w32-shell-execute "open" (replace-regexp-in-string "/" "\\\\" file-path)))
+   (t
+    (user-error "Unsupported system type: %s" system-type))))
+
+(defun luyangliuable/open-file-or-directory-in-external-app (arg)
+  "Open current file in an external application.
+With universal prefix ARG, open the containing folder instead."
+  (interactive "P")
+  (if arg
+      (luyangliuable/open-in-external-app (expand-file-name default-directory))
+    (let ((file-path (if (derived-mode-p 'dired-mode)
+                         (dired-get-file-for-visit)
+                       buffer-file-name)))
+      (if file-path
+          (luyangliuable/open-in-external-app file-path)
+        (message "No file associated to this buffer.")))))
