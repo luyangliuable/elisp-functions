@@ -45,6 +45,23 @@
   (interactive)
   (switch-to-buffer "*scratch*"))
 
+(defun luyangliuable/modeline-scroll-bar-segment ()
+  "Return a custom modeline scroll bar segment.
+Archived implementation; currently unused in favor of Doom modeline's bar."
+  (let* ((width 8)
+         (max-pos (max 1 (point-max)))
+         (point-pos (min max-pos (point)))
+         (ratio (/ (float point-pos) max-pos))
+         (pos (min (1- width)
+                   (max 0 (floor (* width ratio))))))
+    (concat
+     (propertize " " 'display '(space :width 2))
+     (propertize (make-string pos ?▁) 'face 'mode-line-inactive)
+     (propertize " " 'face 'doom-modeline-bar 'display '(space :width 4))
+     (propertize (make-string (- (1- width) pos) ?▁)
+                 'face 'mode-line-inactive)
+     (propertize " " 'display '(space :width 2)))))
+
 (defun luyangliuable/split-window-right-and-run-callback (callback)
   "Split the window vertically and run the CALLBACK function in the new window.
    Handles side windows (like Treemacs) by using a regular window instead."
