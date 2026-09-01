@@ -169,7 +169,7 @@ Movement^^        ^Split^         ^Delete^        ^Other^
 ----------------------------------------------------------------
 _h_: left         _v_: vertical   _d_: delete     _u_: undo
 _j_: down         _s_: horizontal _o_: other      _r_: redo
-_k_: up           _m_: maximize   _D_: delete     _b_: balance
+_k_: up           _m_: maximize   _D_: delete     _=_: balance
 _l_: right        _}_: minimize
 _f_: follow       _{_: enlarge    _F_: fullscreen
 _o_: other        _w_: ace-window
@@ -190,7 +190,7 @@ _o_: other        _w_: ace-window
 	  ("}" enlarge-window)              ; Enlarge the window horizontally
 	  ("f" follow-mode)                 ; Toggle follow mode
 	  ("o" other-window)                ; Switch to the other window
-	  ("b" balance-windows)             ; Balance the sizes of all windows
+	  ("=" balance-windows)             ; Balance the sizes of all windows
 	  ("F" toggle-frame-fullscreen)     ; Toggle fullscreen mode
 	  ("u" winner-undo)                 ; Undo window configuration change
 	  ("r" winner-redo)                 ; Redo window configuration change
@@ -446,29 +446,245 @@ the current workspace's buffers."
        (let ((default-directory target-dir))
          (shell))))))
 
-(defun luyangliuable/drag-stuff-up-repeatable ()
-  "Drag stuff up with repeatable key."
-  (interactive)
-  (drag-stuff-up 1)
-  (message "Press K to move up, J to move down, any other key to exit")
-  (set-transient-map
-   (let ((map (make-sparse-keymap)))
-     (define-key map (kbd "K") #'luyangliuable/drag-stuff-up-repeatable)
-     (define-key map (kbd "J") #'luyangliuable/drag-stuff-down-repeatable)
-     map)
-   nil)) ; Simplified - just use nil without the message parameter
+(declare-function +fold/close "fold")
+(declare-function magit-current-section "magit-section")
+(declare-function magit-section-hide "magit-section")
+(declare-function origami-close-node-recursively "origami")
+(declare-function origami-mode "origami")
+(declare-function org-back-to-heading "org")
+(declare-function org-element-at-point "org-element")
+(declare-function org-element-lineage "org-element-ast")
+(declare-function org-element-post-affiliated "org-element")
+(declare-function org-element-type "org-element-ast")
+(declare-function org-fold-hide-block-toggle "org-fold")
+(declare-function org-fold-hide-drawer-toggle "org-fold")
+(declare-function org-fold-hide-subtree "org-fold")
+(declare-function org-at-heading-p "org")
+(declare-function org-in-item-p "org-list")
+(declare-function org-up-heading-safe "org")
+(declare-function org-list-struct "org-list")
+(declare-function org-list-get-parent "org-list")
+(declare-function org-list-has-child-p "org-list")
+(declare-function org-list-parents-alist "org-list")
+(declare-function org-list-set-item-visibility "org-list")
+(declare-function outline-back-to-heading "outline")
+(declare-function outline-hide-subtree "outline")
+(declare-function org-get-next-sibling "org")
+(declare-function org-get-previous-sibling "org")
+(declare-function org-move-subtree-down "org")
+(declare-function org-move-subtree-up "org")
 
-(defun luyangliuable/drag-stuff-down-repeatable ()
-  "Drag stuff down with repeatable key."
+(declare-function origami-apply-new-tree "origami")
+(declare-function origami-fold-assoc "origami")
+(declare-function origami-fold-beg "origami")
+(declare-function origami-fold-end "origami")
+(declare-function origami-fold-find-path-with-range "origami")
+(declare-function origami-fold-is-root-node? "origami")
+(declare-function origami-fold-map "origami")
+(declare-function origami-fold-open-set "origami")
+(declare-function origami-fold-open? "origami")
+(declare-function origami-get-fold-tree "origami")
+(declare-function origami-reset "origami")
+(declare-function origami-search-forward-for-path "origami")
+(declare-function origami-store-cached-tree "origami")
+
+(defun luyangliuable/origami-closed-node-at-point ()
+  "Return the closed Origami node at point, or nil when there is none."
+  (when (and (not (region-active-p))
+             (bound-and-true-p origami-mode)
+             (fboundp 'origami-search-forward-for-path))
+    (when-let* ((path (origami-search-forward-for-path (current-buffer) (point)))
+                (node (car (last path))))
+      (unless (or (origami-fold-is-root-node? node)
+                  (origami-fold-open? node))
+        node))))
+
+(defun luyangliuable/origami-close-exact-range (beg end)
+  "Recursively close the Origami node whose exact range is BEG through END."
+  (let* ((buffer (current-buffer))
+         (old-tree (origami-get-fold-tree buffer))
+         (path (origami-fold-find-path-with-range old-tree beg end)))
+    (unless path
+      (user-error "Origami could not find moved fold at %d-%d" beg end))
+    (let ((new-tree
+           (origami-fold-assoc
+            path
+            (lambda (node)
+              (origami-fold-map
+               (lambda (child) (origami-fold-open-set child nil))
+               node)))))
+      (origami-apply-new-tree
+       buffer old-tree (origami-store-cached-tree buffer new-tree)))))
+
+(defun luyangliuable/origami-fold-movable-p (beg end drag-function)
+  "Return non-nil when BEG through END can move with DRAG-FUNCTION."
+  (save-excursion
+    (cond ((eq drag-function #'drag-stuff-up)
+           (goto-char beg)
+           (= (forward-line -1) 0))
+          ((eq drag-function #'drag-stuff-down)
+           (goto-char end)
+           (forward-line 1)
+           (not (eobp)))
+          (t (error "Unsupported drag function: %S" drag-function)))))
+
+(defun luyangliuable/org-close-item-at-point (item)
+  "Fold ITEM's nearest parent list item that has nested items.
+Return non-nil when a foldable item was found."
+  (save-excursion
+    (goto-char item)
+    (forward-line 0)
+    (let* ((struct (org-list-struct))
+           (parents (org-list-parents-alist struct))
+           (target item))
+      (while (and target (not (org-list-has-child-p target struct)))
+        (setq target (org-list-get-parent target struct parents)))
+      (when target
+        (org-list-set-item-visibility target struct 'folded)
+        t))))
+
+(defun luyangliuable/org-close-subtree-at-point ()
+  "Close the nearest relevant Org parent fold at point.
+Blocks and ordinary drawers take priority over list items.  Property drawers
+fold their containing heading.  On a heading, fold its parent heading."
   (interactive)
-  (drag-stuff-down 1)
+  (let* ((block-types '(center-block comment-block dynamic-block example-block
+                        export-block quote-block special-block src-block
+                        verse-block))
+         (element (org-element-at-point))
+         (block (org-element-lineage element block-types t))
+         (item (org-in-item-p))
+         (drawer (org-element-lineage element 'drawer t)))
+    (cond (block
+           (goto-char (org-element-post-affiliated block))
+           (org-fold-hide-block-toggle t nil block))
+          (drawer
+           (goto-char (org-element-post-affiliated drawer))
+           (org-fold-hide-drawer-toggle t nil drawer))
+          ((and item (luyangliuable/org-close-item-at-point item)))
+          ((org-at-heading-p)
+           (org-up-heading-safe)
+           (org-fold-hide-subtree))
+          (t
+           (org-back-to-heading t)
+           (org-fold-hide-subtree)))))
+
+(defun luyangliuable/magit-close-section-at-point ()
+  "Close the enclosing Magit log section when point is on a commit."
+  (let ((section (magit-current-section)))
+    (while (and (eq (oref section type) 'commit)
+                (oref section parent))
+      (setq section (oref section parent)))
+    (magit-section-hide section)))
+
+(defun luyangliuable/close-fold-at-point ()
+  "Close the fold or section at point in the active major mode."
+  (interactive)
+  (cond ((derived-mode-p 'org-mode)
+         (luyangliuable/org-close-subtree-at-point))
+        ((derived-mode-p 'magit-section-mode)
+         (luyangliuable/magit-close-section-at-point))
+        ((or (bound-and-true-p origami-mode)
+             (derived-mode-p 'prog-mode))
+         (unless (bound-and-true-p origami-mode)
+           (origami-mode 1))
+         (origami-close-node-recursively (current-buffer) (point)))
+        ((derived-mode-p 'outline-mode)
+         (outline-back-to-heading t)
+         (outline-hide-subtree))
+        (t (+fold/close))))
+
+(defun luyangliuable/drag-org-subtree (drag-function)
+  "Move the Org subtree at point with DRAG-FUNCTION.
+Return `moved', `blocked', or `no-fold' to describe the outcome."
+  (if (and (derived-mode-p 'org-mode)
+           (not (region-active-p))
+           (org-at-heading-p))
+      (let ((move-up-p (eq drag-function #'drag-stuff-up)))
+        (if (save-excursion
+              (funcall (if move-up-p
+                           #'org-get-previous-sibling
+                         #'org-get-next-sibling)))
+            (progn
+              ;; Org swaps complete sibling subtrees, preserving their children.
+              (funcall (if move-up-p
+                           #'org-move-subtree-up
+                         #'org-move-subtree-down))
+              'moved)
+          (message "Subtree cannot move further %s"
+                   (if move-up-p "up" "down"))
+          'blocked))
+    'no-fold))
+
+(defun luyangliuable/drag-closed-origami-fold (drag-function)
+  "Move a closed Origami fold with DRAG-FUNCTION.
+Return `moved', `blocked', or `no-fold' to describe the outcome."
+  (if-let ((node (luyangliuable/origami-closed-node-at-point)))
+      (let* ((fold-beg (origami-fold-beg node))
+             (fold-end (origami-fold-end node))
+             (beg (save-excursion
+                    (goto-char fold-beg)
+                    (line-beginning-position)))
+             (end (save-excursion
+                    (goto-char fold-end)
+                    (line-end-position))))
+        (if (not (luyangliuable/origami-fold-movable-p
+                  beg end drag-function))
+            (progn
+              (message "Fold cannot move further %s"
+                       (if (eq drag-function #'drag-stuff-up) "up" "down"))
+              'blocked)
+          (let ((beg-offset (- fold-beg beg))
+                (end-offset (- fold-end beg))
+                moved-beg)
+            ;; Origami overlays cannot survive drag-stuff's delete-and-insert move.
+            (origami-reset (current-buffer))
+            (let ((deactivate-mark nil))
+              (goto-char beg)
+              (push-mark end t t)
+              (funcall drag-function 1)
+              (setq moved-beg (region-beginning)))
+            (deactivate-mark)
+            (origami-reset (current-buffer))
+            (luyangliuable/origami-close-exact-range
+             (+ moved-beg beg-offset) (+ moved-beg end-offset))
+            (goto-char moved-beg)
+            'moved)))
+    'no-fold))
+
+(defun luyangliuable/drag-stuff-repeat-map ()
+  "Activate the transient J/K map for repeated vertical movement."
   (message "Press J to move down, K to move up, any other key to exit")
   (set-transient-map
    (let ((map (make-sparse-keymap)))
      (define-key map (kbd "J") #'luyangliuable/drag-stuff-down-repeatable)
      (define-key map (kbd "K") #'luyangliuable/drag-stuff-up-repeatable)
      map)
-   nil)) ; Simplified - just use nil without the message parameter
+   nil))
+
+(defun luyangliuable/drag-stuff-up-repeatable ()
+  "Move the closed fold or active text upward and enter repeat mode."
+  (interactive)
+  (pcase (luyangliuable/drag-org-subtree #'drag-stuff-up)
+    ('no-fold
+     (pcase (luyangliuable/drag-closed-origami-fold #'drag-stuff-up)
+       ('no-fold
+        (drag-stuff-up 1)
+        (luyangliuable/drag-stuff-repeat-map))
+       ('moved (luyangliuable/drag-stuff-repeat-map))))
+    ('moved (luyangliuable/drag-stuff-repeat-map))))
+
+(defun luyangliuable/drag-stuff-down-repeatable ()
+  "Move the closed fold or active text downward and enter repeat mode."
+  (interactive)
+  (pcase (luyangliuable/drag-org-subtree #'drag-stuff-down)
+    ('no-fold
+     (pcase (luyangliuable/drag-closed-origami-fold #'drag-stuff-down)
+       ('no-fold
+        (drag-stuff-down 1)
+        (luyangliuable/drag-stuff-repeat-map))
+       ('moved (luyangliuable/drag-stuff-repeat-map))))
+    ('moved (luyangliuable/drag-stuff-repeat-map))))
 
 (defun luyangliuable/sort-lines (&optional reverse)
   "Sort the lines within a selected region or entire buffer.
@@ -563,3 +779,72 @@ With universal prefix ARG, open the containing folder instead."
       (if file-path
           (luyangliuable/open-in-external-app file-path)
         (message "No file associated to this buffer.")))))
+
+(defvar-local luyangliuable/buffer-font-cookie nil
+  "Face remapping cookie for this buffer's custom font.")
+
+(defvar-local luyangliuable/buffer-font-saved-scale nil
+  "Text scale amount saved before setting a custom buffer font.")
+
+(defun luyangliuable/buffer-font--default-size ()
+  "Return the current effective default face size in points."
+  (let* ((height (face-attribute 'default :height nil t))
+         (base-size (/ (float height) 10.0))
+         (scale (if (bound-and-true-p text-scale-mode)
+                    (expt text-scale-mode-step text-scale-mode-amount)
+                  1.0)))
+    (* base-size scale)))
+
+(defun luyangliuable/buffer-font--system-families ()
+  "Return font families known to Emacs and the system font database."
+  (require 'subr-x)
+  (let ((families (font-family-list)))
+    (when (executable-find "fc-list")
+      (dolist (line (ignore-errors (process-lines "fc-list" ":family")))
+        (dolist (family (split-string line "," t "[[:space:]]+"))
+          (push (string-trim family) families))))
+    (sort (delete-dups (delq nil families)) #'string<)))
+
+(defun luyangliuable/set-buffer-font (family size)
+  "Set FAMILY at SIZE points for the current buffer only."
+  (interactive
+   (progn
+     (unless (display-graphic-p)
+       (user-error "Buffer font changes require graphical Emacs"))
+     (let* ((families (luyangliuable/buffer-font--system-families))
+            (default-family (face-attribute 'default :family nil t)))
+       (unless families
+         (user-error "No graphical fonts are available"))
+       (setq default-family
+             (if (member default-family families) default-family (car families)))
+       (let* ((family (completing-read "Font family: " families nil nil nil default-family))
+              (size (read-number "Font size: "
+                                 (luyangliuable/buffer-font--default-size))))
+         (list family size)))))
+  (unless (display-graphic-p)
+    (user-error "Buffer font changes require graphical Emacs"))
+  (unless (and (numberp size) (> size 0))
+    (user-error "Font size must be positive"))
+  (when luyangliuable/buffer-font-cookie
+    (face-remap-remove-relative luyangliuable/buffer-font-cookie))
+  (unless luyangliuable/buffer-font-saved-scale
+    (setq luyangliuable/buffer-font-saved-scale text-scale-mode-amount))
+  (text-scale-set 0)
+  (setq luyangliuable/buffer-font-cookie
+        (face-remap-add-relative
+         'default `(:family ,family :height ,(round (* size 10)))))
+  (redraw-display)
+  (message "Buffer font: %s %.1f" family (float size)))
+
+(defun luyangliuable/reset-buffer-font ()
+  "Reset the current buffer's custom font."
+  (interactive)
+  (if luyangliuable/buffer-font-cookie
+      (progn
+        (face-remap-remove-relative luyangliuable/buffer-font-cookie)
+        (setq luyangliuable/buffer-font-cookie nil)
+        (text-scale-set luyangliuable/buffer-font-saved-scale)
+        (setq luyangliuable/buffer-font-saved-scale nil)
+        (redraw-display)
+        (message "Buffer font reset"))
+    (message "No custom buffer font is active")))
